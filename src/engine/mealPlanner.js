@@ -201,8 +201,9 @@ function buildFixedSnack() {
 }
 
 function buildSnack(groups, target, seed) {
-  // Spuntino FISSO: sempre yogurt greco o whey per 30g di proteine
-  return buildFixedSnack();
+  // Spuntino FISSO: sempre yogurt greco/skyr per 30g di proteine
+  const items = buildFixedSnack();
+  return roundGrams(items);
 }
 
 function buildOptimizedMeal(groups, remaining) {
