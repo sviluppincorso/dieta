@@ -81,11 +81,67 @@ export function generateSingleMeal(ingredients, remainingMacros) {
   };
 }
 
+/**
+ * Genera pranzo e cena separatamente con ingredienti diversi.
+ * Pranzo = 32% macro, Cena = 30% macro (il resto per colazione + spuntini)
+ */
+export function generateLunchDinner(lunchIngredients, dinnerIngredients, macros = DEFAULT_MACROS) {
+  const lunchAvailable = lunchIngredients.filter(i => !i.notFound);
+  const dinnerAvailable = dinnerIngredients.filter(i => !i.notFound);
+
+  if (lunchAvailable.length === 0 || dinnerAvailable.length === 0) return null;
+
+  // Pranzo: 32% dei macro
+  const lunchTarget = {
+    kcal: Math.round(macros.kcal * 0.32),
+    pro: Math.round(macros.pro * 0.32),
+    carb: Math.round(macros.carb * 0.32),
+    fat: Math.round(macros.fat * 0.32),
+  };
+
+  const lunchProteins = lunchAvailable.filter(f => f.category === 'protein');
+  const lunchCarbs = lunchAvailable.filter(f => f.category === 'carb');
+  const lunchFats = lunchAvailable.filter(f => f.category === 'fat');
+  const lunchVeggies = lunchAvailable.filter(f => f.category === 'veggie');
+
+  const lunchItems = buildMainMeal({ proteins: lunchProteins, carbs: lunchCarbs, fats: lunchFats, veggies: lunchVeggies }, lunchTarget, 2);
+  const lunchMacros = calcMacros(lunchItems);
+
+  // Cena: 30% dei macro
+  const dinnerTarget = {
+    kcal: Math.round(macros.kcal * 0.30),
+    pro: Math.round(macros.pro * 0.30),
+    carb: Math.round(macros.carb * 0.30),
+    fat: Math.round(macros.fat * 0.30),
+  };
+
+  const dinnerProteins = dinnerAvailable.filter(f => f.category === 'protein');
+  const dinnerCarbs = dinnerAvailable.filter(f => f.category === 'carb');
+  const dinnerFats = dinnerAvailable.filter(f => f.category === 'fat');
+  const dinnerVeggies = dinnerAvailable.filter(f => f.category === 'veggie');
+
+  const dinnerItems = buildMainMeal({ proteins: dinnerProteins, carbs: dinnerCarbs, fats: dinnerFats, veggies: dinnerVeggies }, dinnerTarget, 4);
+  const dinnerMacros = calcMacros(dinnerItems);
+
+  const totalMacros = sumMacros(lunchMacros, dinnerMacros);
+  const remaining = diffMacros(macros, totalMacros);
+
+  return {
+    lunch: { name: '🍝 Pranzo', items: lunchItems, macros: lunchMacros },
+    dinner: { name: '🥗 Cena', items: dinnerItems, macros: dinnerMacros },
+    totalMacros,
+    remaining,
+  };
+}
+
 function buildMainMeal(groups, target, seed) {
   const items = [];
 
-  if (groups.proteins.length > 0) {
-    const p = pickByIndex(groups.proteins, seed);
+  // Escludi yogurt/whey dai pasti principali (sono riservati agli spuntini)
+  const mainProteins = groups.proteins.filter(f => !SNACK_ONLY_PROTEINS.includes(f.name));
+
+  if (mainProteins.length > 0) {
+    const p = pickByIndex(mainProteins, seed);
     const grams = p.pro > 0 ? Math.round((target.pro / p.pro) * 100) : 150;
     items.push({ ...p, grams: clamp(grams, 50, 250) });
   }
@@ -116,16 +172,17 @@ function buildMainMeal(groups, target, seed) {
   return roundGrams(items);
 }
 
-// Alimenti preferiti per gli spuntini (in ordine di priorità)
-const SNACK_PREFERRED_PROTEINS = ['yogurt greco', 'whey'];
+// Alimenti ESCLUSIVI per spuntini — non usarli nei pasti principali
+const SNACK_ONLY_PROTEINS = ['yogurt greco', 'whey'];
 
 function buildSnack(groups, target, seed) {
   const items = [];
 
   if (groups.proteins.length > 0) {
-    // Cerca prima yogurt greco/skyr o whey tra gli alimenti disponibili
-    let p = groups.proteins.find(f => SNACK_PREFERRED_PROTEINS.includes(f.name));
+    // Negli spuntini usa SOLO yogurt greco/skyr o whey (se disponibili)
+    let p = groups.proteins.find(f => SNACK_ONLY_PROTEINS.includes(f.name));
     if (!p) {
+      // Fallback: usa un'altra proteina leggera
       p = pickByIndex(groups.proteins, seed + 3);
     }
 
@@ -134,9 +191,9 @@ function buildSnack(groups, target, seed) {
     if (p.name === 'whey') {
       grams = 30;
     } else {
-      grams = p.pro > 0 ? Math.round((target.pro / p.pro) * 100) : 100;
+      grams = p.pro > 0 ? Math.round((target.pro / p.pro) * 100) : 150;
     }
-    items.push({ ...p, grams: clamp(grams, 20, 250) });
+    items.push({ ...p, grams: clamp(grams, 20, 300) });
   }
 
   if (groups.carbs.length > 0) {
@@ -225,6 +282,22 @@ function pickBest(arr, macro, targetAmount) {
 
 function clamp(g, min, max) { return Math.max(min, Math.min(max, g)); }
 
+// Peso medio di 1 uovo intero ≈ 60g
+const EGG_WEIGHT = 60;
+
 function roundGrams(items) {
-  return items.map(item => ({ ...item, grams: Math.round(item.grams / 5) * 5 }));
+  return items.map(item => {
+    const grams = Math.round(item.grams / 5) * 5;
+
+    // Per le uova, mostra il numero
+    if (item.name === 'uova' || item.name === 'albume') {
+      const count = Math.round(grams / EGG_WEIGHT);
+      const displayName = item.name === 'uova'
+        ? `uova (${count} ${count === 1 ? 'uovo' : 'uova'})`
+        : `albume (${count} ${count === 1 ? 'albume' : 'albumi'})`;
+      return { ...item, grams, displayName };
+    }
+
+    return { ...item, grams };
+  });
 }

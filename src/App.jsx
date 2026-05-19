@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { DEFAULT_MACROS, parseIngredients, generateDayPlan, generateSingleMeal } from './engine/mealPlanner';
+import { DEFAULT_MACROS, parseIngredients, generateDayPlan, generateSingleMeal, generateLunchDinner } from './engine/mealPlanner';
 import { getAllFoods } from './engine/foodDatabase';
 
 function App() {
   const [mode, setMode] = useState('day');
   const [fridgeInput, setFridgeInput] = useState('');
+  const [lunchInput, setLunchInput] = useState('');
+  const [dinnerInput, setDinnerInput] = useState('');
   const [macros, setMacros] = useState({ ...DEFAULT_MACROS });
   const [consumed, setConsumed] = useState({ kcal: 0, pro: 0, carb: 0, fat: 0 });
   const [result, setResult] = useState(null);
@@ -15,27 +17,47 @@ function App() {
     setLoading(true);
     setResult(null);
     setTimeout(() => {
-      const ingredients = parseIngredients(fridgeInput);
-      const recognized = ingredients.filter(i => !i.notFound);
+      if (mode === 'lunchdinner') {
+        const lunchIngredients = parseIngredients(lunchInput);
+        const dinnerIngredients = parseIngredients(dinnerInput);
+        const lunchRecognized = lunchIngredients.filter(i => !i.notFound);
+        const dinnerRecognized = dinnerIngredients.filter(i => !i.notFound);
 
-      if (recognized.length === 0) {
-        setResult({ error: 'Nessun alimento riconosciuto. Prova con: pollo, riso, uova, pasta, olio evo, zucchine...' });
-        setLoading(false);
-        return;
-      }
+        if (lunchRecognized.length < 3 || dinnerRecognized.length < 3) {
+          setResult({ error: 'Inserisci almeno 3 ingredienti per il pranzo e 3 per la cena.' });
+          setLoading(false);
+          return;
+        }
 
-      if (mode === 'day') {
-        const plan = generateDayPlan(ingredients, macros);
-        setResult({ type: 'day', plan, unrecognized: ingredients.filter(i => i.notFound) });
+        const plan = generateLunchDinner(lunchIngredients, dinnerIngredients, macros);
+        const unrecognized = [
+          ...lunchIngredients.filter(i => i.notFound),
+          ...dinnerIngredients.filter(i => i.notFound),
+        ];
+        setResult({ type: 'lunchdinner', plan, unrecognized });
       } else {
-        const remaining = {
-          kcal: Math.max(0, macros.kcal - consumed.kcal),
-          pro: Math.max(0, macros.pro - consumed.pro),
-          carb: Math.max(0, macros.carb - consumed.carb),
-          fat: Math.max(0, macros.fat - consumed.fat),
-        };
-        const plan = generateSingleMeal(ingredients, remaining);
-        setResult({ type: 'single', plan, unrecognized: ingredients.filter(i => i.notFound) });
+        const ingredients = parseIngredients(fridgeInput);
+        const recognized = ingredients.filter(i => !i.notFound);
+
+        if (recognized.length === 0) {
+          setResult({ error: 'Nessun alimento riconosciuto. Prova con: pollo, riso, uova, pasta, olio evo, zucchine...' });
+          setLoading(false);
+          return;
+        }
+
+        if (mode === 'day') {
+          const plan = generateDayPlan(ingredients, macros);
+          setResult({ type: 'day', plan, unrecognized: ingredients.filter(i => i.notFound) });
+        } else {
+          const remaining = {
+            kcal: Math.max(0, macros.kcal - consumed.kcal),
+            pro: Math.max(0, macros.pro - consumed.pro),
+            carb: Math.max(0, macros.carb - consumed.carb),
+            fat: Math.max(0, macros.fat - consumed.fat),
+          };
+          const plan = generateSingleMeal(ingredients, remaining);
+          setResult({ type: 'single', plan, unrecognized: ingredients.filter(i => i.notFound) });
+        }
       }
       setLoading(false);
     }, 500);
@@ -50,48 +72,102 @@ function App() {
   };
 
   function addToFridge(name) {
+    if (mode === 'lunchdinner') return; // In questa modalità si usano i campi separati
     setFridgeInput(prev => {
       if (!prev.trim()) return name;
       return prev + ', ' + name;
     });
   }
 
+  function addToLunch(name) {
+    setLunchInput(prev => prev.trim() ? prev + ', ' + name : name);
+  }
+
+  function addToDinner(name) {
+    setDinnerInput(prev => prev.trim() ? prev + ', ' + name : name);
+  }
+
+  const canGenerate = mode === 'lunchdinner'
+    ? (lunchInput.trim() && dinnerInput.trim())
+    : fridgeInput.trim();
+
   return (
     <div className="app">
       <header className="header">
-        <h1>🍽️ MealDecider</h1>
+        <h1>🍽️ Decidi il tuo pasto</h1>
         <p>Dimmi cosa hai in frigo. Decido io.</p>
       </header>
 
       <div className="mode-selector">
         <button className={`mode-btn ${mode === 'day' ? 'active' : ''}`} onClick={() => { setMode('day'); setResult(null); }}>
-          📅 Cosa mangio oggi?
+          📅 Giornata
+        </button>
+        <button className={`mode-btn ${mode === 'lunchdinner' ? 'active' : ''}`} onClick={() => { setMode('lunchdinner'); setResult(null); }}>
+          🍝🥗 Pranzo + Cena
         </button>
         <button className={`mode-btn ${mode === 'single' ? 'active' : ''}`} onClick={() => { setMode('single'); setResult(null); }}>
-          🍴 Cosa mangio adesso?
+          🍴 Adesso
         </button>
       </div>
 
-      <div className="section">
-        <div className="section-title">🧊 Cosa hai in frigo?</div>
-        <textarea
-          className="input-area"
-          placeholder={"Scrivi gli alimenti separati da virgola o a capo\nEs: pollo, riso, zucchine, uova, olio evo, banana"}
-          value={fridgeInput}
-          onChange={e => setFridgeInput(e.target.value)}
-        />
-        <button className="food-list-toggle" onClick={() => setShowFoodList(!showFoodList)}>
-          {showFoodList ? '▲ Nascondi alimenti' : '▼ Mostra alimenti disponibili'}
-        </button>
-        {showFoodList && (
-          <div className="food-list">
-            <FoodCategory title="🥩 Proteine" foods={foodsByCategory.protein} onAdd={addToFridge} />
-            <FoodCategory title="🍚 Carboidrati" foods={foodsByCategory.carb} onAdd={addToFridge} />
-            <FoodCategory title="🥑 Grassi" foods={foodsByCategory.fat} onAdd={addToFridge} />
-            <FoodCategory title="🥬 Verdure" foods={foodsByCategory.veggie} onAdd={addToFridge} />
+      {/* Input per modalità Pranzo + Cena */}
+      {mode === 'lunchdinner' && (
+        <>
+          <div className="section">
+            <div className="section-title">🍝 Ingredienti per il PRANZO (min. 3)</div>
+            <textarea
+              className="input-area"
+              placeholder={"Cosa hai per pranzo?\nEs: pollo, riso, zucchine, olio evo"}
+              value={lunchInput}
+              onChange={e => setLunchInput(e.target.value)}
+            />
+            <div className="food-chips" style={{ marginTop: '8px' }}>
+              {['pollo', 'pasta', 'riso', 'tonno', 'uova', 'zucchine', 'pomodori', 'olio evo'].map(f => (
+                <button key={f} className="food-chip" onClick={() => addToLunch(f)}>{f}</button>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="section">
+            <div className="section-title">🥗 Ingredienti per la CENA (min. 3)</div>
+            <textarea
+              className="input-area"
+              placeholder={"Cosa hai per cena?\nEs: salmone, patate, spinaci, olio evo"}
+              value={dinnerInput}
+              onChange={e => setDinnerInput(e.target.value)}
+            />
+            <div className="food-chips" style={{ marginTop: '8px' }}>
+              {['salmone', 'merluzzo', 'uova', 'patate', 'insalata', 'broccoli', 'pane', 'olio evo'].map(f => (
+                <button key={f} className="food-chip" onClick={() => addToDinner(f)}>{f}</button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Input generico per altre modalità */}
+      {mode !== 'lunchdinner' && (
+        <div className="section">
+          <div className="section-title">🧊 Cosa hai in frigo?</div>
+          <textarea
+            className="input-area"
+            placeholder={"Scrivi gli alimenti separati da virgola o a capo\nEs: pollo, riso, zucchine, uova, olio evo, banana"}
+            value={fridgeInput}
+            onChange={e => setFridgeInput(e.target.value)}
+          />
+          <button className="food-list-toggle" onClick={() => setShowFoodList(!showFoodList)}>
+            {showFoodList ? '▲ Nascondi alimenti' : '▼ Mostra alimenti disponibili'}
+          </button>
+          {showFoodList && (
+            <div className="food-list">
+              <FoodCategory title="🥩 Proteine" foods={foodsByCategory.protein} onAdd={addToFridge} />
+              <FoodCategory title="🍚 Carboidrati" foods={foodsByCategory.carb} onAdd={addToFridge} />
+              <FoodCategory title="🥑 Grassi" foods={foodsByCategory.fat} onAdd={addToFridge} />
+              <FoodCategory title="🥬 Verdure" foods={foodsByCategory.veggie} onAdd={addToFridge} />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="section">
         <div className="section-title">🎯 Macro giornalieri target</div>
@@ -122,7 +198,7 @@ function App() {
         </div>
       )}
 
-      <button className="generate-btn" onClick={handleGenerate} disabled={!fridgeInput.trim() || loading}>
+      <button className="generate-btn" onClick={handleGenerate} disabled={!canGenerate || loading}>
         {loading ? '⏳ Calcolo...' : '⚡ Genera pasto'}
       </button>
 
@@ -134,6 +210,10 @@ function App() {
 
       {result && result.type === 'day' && result.plan && (
         <DayPlanResult plan={result.plan} unrecognized={result.unrecognized} />
+      )}
+
+      {result && result.type === 'lunchdinner' && result.plan && (
+        <LunchDinnerResult plan={result.plan} unrecognized={result.unrecognized} />
       )}
 
       {result && result.type === 'single' && result.plan && (
@@ -171,7 +251,7 @@ function MealCard({ meal }) {
       <h3>{meal.name}</h3>
       {meal.items.map((item, i) => (
         <div key={i} className="meal-item">
-          <span className="food">{item.name}</span>
+          <span className="food">{item.displayName || item.name}</span>
           <span className="grams">{item.grams}g</span>
         </div>
       ))}
@@ -229,6 +309,31 @@ function SingleMealResult({ plan, unrecognized }) {
         <h4>📊 Macro rimanenti dopo questo pasto</h4>
         <MacroSummary macros={plan.remaining} />
       </div>
+    </>
+  );
+}
+
+function LunchDinnerResult({ plan, unrecognized }) {
+  return (
+    <>
+      {unrecognized.length > 0 && (
+        <div className="result-card" style={{ borderLeftColor: 'var(--warning)' }}>
+          <h3>❓ Non riconosciuti</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
+        </div>
+      )}
+      <MealCard meal={plan.lunch} />
+      <MealCard meal={plan.dinner} />
+      <div className="remaining-banner">
+        <h4>📊 Totale pranzo + cena</h4>
+        <MacroSummary macros={plan.totalMacros} />
+      </div>
+      {(plan.remaining.kcal > 50 || plan.remaining.pro > 5) && (
+        <div className="remaining-banner" style={{ marginTop: '8px', opacity: 0.8 }}>
+          <h4>Macro rimanenti (per colazione + spuntini)</h4>
+          <MacroSummary macros={plan.remaining} />
+        </div>
+      )}
     </>
   );
 }
