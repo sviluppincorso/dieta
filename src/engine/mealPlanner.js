@@ -116,13 +116,27 @@ function buildMainMeal(groups, target, seed) {
   return roundGrams(items);
 }
 
+// Alimenti preferiti per gli spuntini (in ordine di priorità)
+const SNACK_PREFERRED_PROTEINS = ['yogurt greco', 'whey'];
+
 function buildSnack(groups, target, seed) {
   const items = [];
 
   if (groups.proteins.length > 0) {
-    const p = pickByIndex(groups.proteins, seed + 3);
-    const grams = p.pro > 0 ? Math.round((target.pro / p.pro) * 100) : 100;
-    items.push({ ...p, grams: clamp(grams, 20, 200) });
+    // Cerca prima yogurt greco/skyr o whey tra gli alimenti disponibili
+    let p = groups.proteins.find(f => SNACK_PREFERRED_PROTEINS.includes(f.name));
+    if (!p) {
+      p = pickByIndex(groups.proteins, seed + 3);
+    }
+
+    // Whey: fisso 30g (1 scoop). Yogurt: calcola per target proteine.
+    let grams;
+    if (p.name === 'whey') {
+      grams = 30;
+    } else {
+      grams = p.pro > 0 ? Math.round((target.pro / p.pro) * 100) : 100;
+    }
+    items.push({ ...p, grams: clamp(grams, 20, 250) });
   }
 
   if (groups.carbs.length > 0) {
