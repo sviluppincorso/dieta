@@ -94,7 +94,7 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>🍽️ Decidi il tuo pasto</h1>
+        <h1>🍽️ MealDecider</h1>
         <p>Dimmi cosa hai in frigo. Decido io.</p>
       </header>
 
@@ -322,15 +322,17 @@ function LunchDinnerResult({ plan, unrecognized }) {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
         </div>
       )}
+      <MealCard meal={plan.snack1} />
       <MealCard meal={plan.lunch} />
+      <MealCard meal={plan.snack2} />
       <MealCard meal={plan.dinner} />
       <div className="remaining-banner">
-        <h4>📊 Totale pranzo + cena</h4>
+        <h4>📊 Totale (spuntini + pranzo + cena)</h4>
         <MacroSummary macros={plan.totalMacros} />
       </div>
       {(plan.remaining.kcal > 50 || plan.remaining.pro > 5) && (
         <div className="remaining-banner" style={{ marginTop: '8px', opacity: 0.8 }}>
-          <h4>Macro rimanenti (per colazione + spuntini)</h4>
+          <h4>Macro rimanenti (per colazione)</h4>
           <MacroSummary macros={plan.remaining} />
         </div>
       )}
