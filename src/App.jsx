@@ -304,9 +304,11 @@ function SingleMealResult({ plan, unrecognized }) {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
         </div>
       )}
+      <MealCard meal={plan.snack1} />
       <MealCard meal={plan.meal} />
+      <MealCard meal={plan.snack2} />
       <div className="remaining-banner">
-        <h4>📊 Macro rimanenti dopo questo pasto</h4>
+        <h4>📊 Macro rimanenti dopo pasto + spuntini</h4>
         <MacroSummary macros={plan.remaining} />
       </div>
     </>

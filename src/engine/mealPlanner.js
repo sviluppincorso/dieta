@@ -1,6 +1,20 @@
-import { findFood } from './foodDatabase';
+import { findFood } from './foodDatabase.js';
 
 export const DEFAULT_MACROS = { kcal: 2150, pro: 160, carb: 220, fat: 60 };
+
+// Alimenti ESCLUSIVI per spuntini — non usarli nei pasti principali
+const SNACK_ONLY_PROTEINS = ['yogurt greco', 'whey'];
+
+/**
+ * Spuntino FISSO: yogurt greco/skyr ~335g = 30g proteine
+ * Sempre presente in ogni piano, indipendentemente dall'input utente.
+ */
+function buildFixedSnack() {
+  const yogurt = { name: 'yogurt greco / skyr', kcal: 97, pro: 9, carb: 3.6, fat: 5, category: 'protein' };
+  // 30g di proteine da yogurt greco: 30 / 9 * 100 = 333g
+  const grams = Math.round((30 / yogurt.pro) * 100);
+  return [{ ...yogurt, grams: clamp(grams, 150, 400) }];
+}
 
 const MEAL_DISTRIBUTION = [
   { key: 'colazione', ratio: 0.22, name: '🌅 Colazione' },
@@ -71,12 +85,25 @@ export function generateSingleMeal(ingredients, remainingMacros) {
   const fats = available.filter(f => f.category === 'fat');
   const veggies = available.filter(f => f.category === 'veggie');
 
-  const mealItems = buildOptimizedMeal({ proteins, carbs, fats, veggies }, remainingMacros);
+  // Escludi yogurt/whey dal pasto principale
+  const mainProteins = proteins.filter(f => !SNACK_ONLY_PROTEINS.includes(f.name));
+
+  const mealItems = buildOptimizedMeal({ proteins: mainProteins, carbs, fats, veggies }, remainingMacros);
   const mealMacros = calcMacros(mealItems);
-  const newRemaining = diffMacros(remainingMacros, mealMacros);
+
+  // Spuntini FISSI
+  const snack1Items = roundGrams(buildFixedSnack());
+  const snack1Macros = calcMacros(snack1Items);
+  const snack2Items = roundGrams(buildFixedSnack());
+  const snack2Macros = calcMacros(snack2Items);
+
+  const totalUsed = [mealMacros, snack1Macros, snack2Macros].reduce(sumMacros, { kcal: 0, pro: 0, carb: 0, fat: 0 });
+  const newRemaining = diffMacros(remainingMacros, totalUsed);
 
   return {
     meal: { name: '🍽️ Pasto suggerito', items: mealItems, macros: mealMacros },
+    snack1: { name: '🥜 Spuntino mattina', items: snack1Items, macros: snack1Macros },
+    snack2: { name: '🍌 Spuntino pomeriggio', items: snack2Items, macros: snack2Macros },
     remaining: newRemaining,
   };
 }
@@ -182,22 +209,6 @@ function buildMainMeal(groups, target, seed) {
   }
 
   return roundGrams(items);
-}
-
-// Alimenti ESCLUSIVI per spuntini — non usarli nei pasti principali
-const SNACK_ONLY_PROTEINS = ['yogurt greco', 'whey'];
-
-/**
- * Spuntino FISSO: 30g whey OPPURE yogurt greco/skyr (~330g per 30g pro)
- * Sempre presente in ogni piano, indipendentemente dall'input utente.
- */
-function buildFixedSnack() {
-  // Default: 30g whey (= 24g pro) oppure yogurt greco 330g (= ~30g pro)
-  // Usiamo yogurt greco come default (più saziante, più realistico)
-  const yogurt = { name: 'yogurt greco', kcal: 97, pro: 9, carb: 3.6, fat: 5, category: 'protein', aliases: ['greek yogurt', 'skyr'] };
-  // 30g di proteine da yogurt greco: 30 / 9 * 100 = 333g
-  const grams = Math.round((30 / yogurt.pro) * 100);
-  return [{ ...yogurt, grams: clamp(grams, 150, 400) }];
 }
 
 function buildSnack(groups, target, seed) {
