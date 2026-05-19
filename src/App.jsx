@@ -304,11 +304,12 @@ function SingleMealResult({ plan, unrecognized }) {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
         </div>
       )}
+      <MealCard meal={plan.breakfast} />
       <MealCard meal={plan.snack1} />
       <MealCard meal={plan.meal} />
       <MealCard meal={plan.snack2} />
       <div className="remaining-banner">
-        <h4>📊 Macro rimanenti dopo pasto + spuntini</h4>
+        <h4>📊 Macro rimanenti</h4>
         <MacroSummary macros={plan.remaining} />
       </div>
     </>
@@ -324,17 +325,18 @@ function LunchDinnerResult({ plan, unrecognized }) {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
         </div>
       )}
+      <MealCard meal={plan.breakfast} />
       <MealCard meal={plan.snack1} />
       <MealCard meal={plan.lunch} />
       <MealCard meal={plan.snack2} />
       <MealCard meal={plan.dinner} />
       <div className="remaining-banner">
-        <h4>📊 Totale (spuntini + pranzo + cena)</h4>
+        <h4>📊 Totale giornata</h4>
         <MacroSummary macros={plan.totalMacros} />
       </div>
       {(plan.remaining.kcal > 50 || plan.remaining.pro > 5) && (
         <div className="remaining-banner" style={{ marginTop: '8px', opacity: 0.8 }}>
-          <h4>Macro rimanenti (per colazione)</h4>
+          <h4>Macro rimanenti</h4>
           <MacroSummary macros={plan.remaining} />
         </div>
       )}

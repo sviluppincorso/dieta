@@ -16,6 +16,31 @@ function buildFixedSnack() {
   return [{ ...yogurt, grams: clamp(grams, 150, 400) }];
 }
 
+/**
+ * Colazione FISSA standard (2 opzioni alternate):
+ * Opzione A: Avena 60g + Whey 30g + Marmellata 20g
+ * Opzione B: Latte 250ml + Cereali integrali 60g + Whey 30g
+ */
+function buildFixedBreakfast() {
+  // Alterna tra le due opzioni in base al giorno
+  const today = new Date().getDate();
+  if (today % 2 === 0) {
+    // Opzione A: porridge proteico
+    return [
+      { name: 'avena (porridge)', kcal: 389, pro: 17, carb: 66, fat: 7, category: 'carb', grams: 60 },
+      { name: 'whey', kcal: 400, pro: 80, carb: 8, fat: 6, category: 'protein', grams: 30 },
+      { name: 'marmellata', kcal: 250, pro: 0.4, carb: 60, fat: 0.1, category: 'carb', grams: 20 },
+    ];
+  } else {
+    // Opzione B: latte + cereali + whey
+    return [
+      { name: 'latte', kcal: 42, pro: 3.4, carb: 5, fat: 1, category: 'carb', grams: 250 },
+      { name: 'cereali integrali', kcal: 360, pro: 8, carb: 72, fat: 4, category: 'carb', grams: 60 },
+      { name: 'whey', kcal: 400, pro: 80, carb: 8, fat: 6, category: 'protein', grams: 30 },
+    ];
+  }
+}
+
 const MEAL_DISTRIBUTION = [
   { key: 'colazione', ratio: 0.22, name: '🌅 Colazione' },
   { key: 'spuntino1', ratio: 0.08, name: '🥜 Spuntino mattina' },
@@ -56,6 +81,7 @@ export function generateDayPlan(ingredients, macros = DEFAULT_MACROS) {
   for (let i = 0; i < MEAL_DISTRIBUTION.length; i++) {
     const config = MEAL_DISTRIBUTION[i];
     const isSnack = config.key.startsWith('spuntino');
+    const isBreakfast = config.key === 'colazione';
     const targetMacros = {
       kcal: Math.round(macros.kcal * config.ratio),
       pro: Math.round(macros.pro * config.ratio),
@@ -63,9 +89,14 @@ export function generateDayPlan(ingredients, macros = DEFAULT_MACROS) {
       fat: Math.round(macros.fat * config.ratio),
     };
 
-    const mealItems = isSnack
-      ? buildSnack({ proteins, carbs, fats, veggies }, targetMacros, i)
-      : buildMainMeal({ proteins, carbs, fats, veggies }, targetMacros, i);
+    let mealItems;
+    if (isBreakfast) {
+      mealItems = roundGrams(buildFixedBreakfast());
+    } else if (isSnack) {
+      mealItems = roundGrams(buildFixedSnack());
+    } else {
+      mealItems = buildMainMeal({ proteins, carbs, fats, veggies }, targetMacros, i);
+    }
 
     const mealMacros = calcMacros(mealItems);
     usedMacros = sumMacros(usedMacros, mealMacros);
@@ -91,18 +122,23 @@ export function generateSingleMeal(ingredients, remainingMacros) {
   const mealItems = buildOptimizedMeal({ proteins: mainProteins, carbs, fats, veggies }, remainingMacros);
   const mealMacros = calcMacros(mealItems);
 
+  // Colazione FISSA
+  const breakfastItems = roundGrams(buildFixedBreakfast());
+  const breakfastMacros = calcMacros(breakfastItems);
+
   // Spuntini FISSI
   const snack1Items = roundGrams(buildFixedSnack());
   const snack1Macros = calcMacros(snack1Items);
   const snack2Items = roundGrams(buildFixedSnack());
   const snack2Macros = calcMacros(snack2Items);
 
-  const totalUsed = [mealMacros, snack1Macros, snack2Macros].reduce(sumMacros, { kcal: 0, pro: 0, carb: 0, fat: 0 });
+  const totalUsed = [mealMacros, breakfastMacros, snack1Macros, snack2Macros].reduce(sumMacros, { kcal: 0, pro: 0, carb: 0, fat: 0 });
   const newRemaining = diffMacros(remainingMacros, totalUsed);
 
   return {
-    meal: { name: '🍽️ Pasto suggerito', items: mealItems, macros: mealMacros },
+    breakfast: { name: '� Colazione', items: breakfastItems, macros: breakfastMacros },
     snack1: { name: '🥜 Spuntino mattina', items: snack1Items, macros: snack1Macros },
+    meal: { name: '🍽️ Pasto suggerito', items: mealItems, macros: mealMacros },
     snack2: { name: '🍌 Spuntino pomeriggio', items: snack2Items, macros: snack2Macros },
     remaining: newRemaining,
   };
@@ -163,13 +199,21 @@ export function generateLunchDinner(lunchIngredients, dinnerIngredients, macros 
   const totalMacros = [lunchMacros, dinnerMacros, snack1Macros, snack2Macros].reduce(sumMacros, { kcal: 0, pro: 0, carb: 0, fat: 0 });
   const remaining = diffMacros(macros, totalMacros);
 
+  // Colazione FISSA
+  const breakfastItems = roundGrams(buildFixedBreakfast());
+  const breakfastMacros = calcMacros(breakfastItems);
+
+  const totalWithBreakfast = sumMacros(totalMacros, breakfastMacros);
+  const remainingAfterAll = diffMacros(macros, totalWithBreakfast);
+
   return {
-    lunch: { name: '🍝 Pranzo', items: lunchItems, macros: lunchMacros },
-    dinner: { name: '🥗 Cena', items: dinnerItems, macros: dinnerMacros },
+    breakfast: { name: '🌅 Colazione', items: breakfastItems, macros: breakfastMacros },
     snack1: { name: '🥜 Spuntino mattina', items: snack1Rounded, macros: snack1Macros },
+    lunch: { name: '🍝 Pranzo', items: lunchItems, macros: lunchMacros },
     snack2: { name: '🍌 Spuntino pomeriggio', items: snack2Rounded, macros: snack2Macros },
-    totalMacros,
-    remaining,
+    dinner: { name: '🥗 Cena', items: dinnerItems, macros: dinnerMacros },
+    totalMacros: totalWithBreakfast,
+    remaining: remainingAfterAll,
   };
 }
 
