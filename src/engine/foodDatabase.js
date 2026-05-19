@@ -1,5 +1,4 @@
 // Database nutrizionale per 100g di alimento
-// Fonte: tabelle CREA / USDA approssimate
 const FOOD_DB = {
   // Proteine
   'pollo': { kcal: 165, pro: 31, carb: 0, fat: 3.6, category: 'protein', aliases: ['petto di pollo', 'chicken'] },
@@ -33,7 +32,6 @@ const FOOD_DB = {
   'fette biscottate': { kcal: 408, pro: 11, carb: 75, fat: 6, category: 'carb', aliases: ['fette'] },
   'quinoa': { kcal: 120, pro: 4.4, carb: 21, fat: 1.9, category: 'carb', aliases: [] },
   'cous cous': { kcal: 112, pro: 3.8, carb: 23, fat: 0.2, category: 'carb', aliases: ['couscous'] },
-  'mais': { kcal: 86, pro: 3.2, carb: 19, fat: 1.2, category: 'carb', aliases: ['corn', 'gallette di mais'] },
   'banana': { kcal: 89, pro: 1.1, carb: 23, fat: 0.3, category: 'carb', aliases: ['banane'] },
   'mela': { kcal: 52, pro: 0.3, carb: 14, fat: 0.2, category: 'carb', aliases: ['mele', 'apple'] },
   'miele': { kcal: 304, pro: 0.3, carb: 82, fat: 0, category: 'carb', aliases: [] },
@@ -62,38 +60,19 @@ const FOOD_DB = {
   'asparagi': { kcal: 20, pro: 2.2, carb: 3.9, fat: 0.1, category: 'veggie', aliases: [] },
 };
 
-/**
- * Cerca un alimento nel database (fuzzy match su nome e alias)
- */
 export function findFood(input) {
   const term = input.toLowerCase().trim();
-
-  // Match esatto
   if (FOOD_DB[term]) return { name: term, ...FOOD_DB[term] };
-
-  // Match su alias
   for (const [name, data] of Object.entries(FOOD_DB)) {
-    if (data.aliases.some(a => a === term)) {
-      return { name, ...data };
-    }
+    if (data.aliases.some(a => a === term)) return { name, ...data };
   }
-
-  // Match parziale
   for (const [name, data] of Object.entries(FOOD_DB)) {
-    if (name.includes(term) || term.includes(name)) {
-      return { name, ...data };
-    }
-    if (data.aliases.some(a => a.includes(term) || term.includes(a))) {
-      return { name, ...data };
-    }
+    if (name.includes(term) || term.includes(name)) return { name, ...data };
+    if (data.aliases.some(a => a.includes(term) || term.includes(a))) return { name, ...data };
   }
-
   return null;
 }
 
-/**
- * Restituisce tutti gli alimenti del database
- */
 export function getAllFoods() {
   return Object.entries(FOOD_DB).map(([name, data]) => ({ name, ...data }));
 }

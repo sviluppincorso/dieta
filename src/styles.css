@@ -22,7 +22,6 @@ body {
   color: var(--text);
   min-height: 100vh;
   min-height: 100dvh;
-  overflow-x: hidden;
 }
 
 #root {
@@ -275,7 +274,6 @@ body {
   color: var(--text-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: color 0.2s;
 }
 
 .food-list-toggle:hover {
@@ -312,7 +310,6 @@ body {
   color: var(--text);
   font-size: 0.72rem;
   cursor: pointer;
-  transition: all 0.15s;
 }
 
 .food-chip:hover {

@@ -3,7 +3,7 @@ import { DEFAULT_MACROS, parseIngredients, generateDayPlan, generateSingleMeal }
 import { getAllFoods } from './engine/foodDatabase';
 
 function App() {
-  const [mode, setMode] = useState('day'); // 'day' | 'single'
+  const [mode, setMode] = useState('day');
   const [fridgeInput, setFridgeInput] = useState('');
   const [macros, setMacros] = useState({ ...DEFAULT_MACROS });
   const [consumed, setConsumed] = useState({ kcal: 0, pro: 0, carb: 0, fat: 0 });
@@ -14,7 +14,6 @@ function App() {
   const handleGenerate = () => {
     setLoading(true);
     setResult(null);
-
     setTimeout(() => {
       const ingredients = parseIngredients(fridgeInput);
       const recognized = ingredients.filter(i => !i.notFound);
@@ -50,6 +49,13 @@ function App() {
     veggie: allFoods.filter(f => f.category === 'veggie'),
   };
 
+  function addToFridge(name) {
+    setFridgeInput(prev => {
+      if (!prev.trim()) return name;
+      return prev + ', ' + name;
+    });
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -57,23 +63,15 @@ function App() {
         <p>Dimmi cosa hai in frigo. Decido io.</p>
       </header>
 
-      {/* Mode selector */}
       <div className="mode-selector">
-        <button
-          className={`mode-btn ${mode === 'day' ? 'active' : ''}`}
-          onClick={() => { setMode('day'); setResult(null); }}
-        >
+        <button className={`mode-btn ${mode === 'day' ? 'active' : ''}`} onClick={() => { setMode('day'); setResult(null); }}>
           📅 Cosa mangio oggi?
         </button>
-        <button
-          className={`mode-btn ${mode === 'single' ? 'active' : ''}`}
-          onClick={() => { setMode('single'); setResult(null); }}
-        >
+        <button className={`mode-btn ${mode === 'single' ? 'active' : ''}`} onClick={() => { setMode('single'); setResult(null); }}>
           🍴 Cosa mangio adesso?
         </button>
       </div>
 
-      {/* Fridge input */}
       <div className="section">
         <div className="section-title">🧊 Cosa hai in frigo?</div>
         <textarea
@@ -82,24 +80,19 @@ function App() {
           value={fridgeInput}
           onChange={e => setFridgeInput(e.target.value)}
         />
-        <button
-          className="food-list-toggle"
-          onClick={() => setShowFoodList(!showFoodList)}
-        >
+        <button className="food-list-toggle" onClick={() => setShowFoodList(!showFoodList)}>
           {showFoodList ? '▲ Nascondi alimenti' : '▼ Mostra alimenti disponibili'}
         </button>
-
         {showFoodList && (
           <div className="food-list">
-            <FoodCategory title="🥩 Proteine" foods={foodsByCategory.protein} onAdd={(name) => addToFridge(name)} />
-            <FoodCategory title="🍚 Carboidrati" foods={foodsByCategory.carb} onAdd={(name) => addToFridge(name)} />
-            <FoodCategory title="🥑 Grassi" foods={foodsByCategory.fat} onAdd={(name) => addToFridge(name)} />
-            <FoodCategory title="🥬 Verdure" foods={foodsByCategory.veggie} onAdd={(name) => addToFridge(name)} />
+            <FoodCategory title="🥩 Proteine" foods={foodsByCategory.protein} onAdd={addToFridge} />
+            <FoodCategory title="🍚 Carboidrati" foods={foodsByCategory.carb} onAdd={addToFridge} />
+            <FoodCategory title="🥑 Grassi" foods={foodsByCategory.fat} onAdd={addToFridge} />
+            <FoodCategory title="🥬 Verdure" foods={foodsByCategory.veggie} onAdd={addToFridge} />
           </div>
         )}
       </div>
 
-      {/* Macro target */}
       <div className="section">
         <div className="section-title">🎯 Macro giornalieri target</div>
         <div className="macro-grid">
@@ -110,7 +103,6 @@ function App() {
         </div>
       </div>
 
-      {/* Consumed macros (only in single mode) */}
       {mode === 'single' && (
         <div className="section">
           <div className="section-title">✅ Macro già consumati oggi</div>
@@ -122,36 +114,22 @@ function App() {
           </div>
           <div className="remaining-preview">
             <span>Rimanenti: </span>
-            <strong>{Math.max(0, macros.kcal - consumed.kcal)}</strong> kcal · 
-            <strong> {Math.max(0, macros.pro - consumed.pro)}</strong>g pro · 
-            <strong> {Math.max(0, macros.carb - consumed.carb)}</strong>g carb · 
+            <strong>{Math.max(0, macros.kcal - consumed.kcal)}</strong> kcal ·
+            <strong> {Math.max(0, macros.pro - consumed.pro)}</strong>g pro ·
+            <strong> {Math.max(0, macros.carb - consumed.carb)}</strong>g carb ·
             <strong> {Math.max(0, macros.fat - consumed.fat)}</strong>g fat
           </div>
         </div>
       )}
 
-      {/* Generate button */}
-      <button
-        className="generate-btn"
-        onClick={handleGenerate}
-        disabled={!fridgeInput.trim() || loading}
-      >
+      <button className="generate-btn" onClick={handleGenerate} disabled={!fridgeInput.trim() || loading}>
         {loading ? '⏳ Calcolo...' : '⚡ Genera pasto'}
       </button>
 
-      {/* Results */}
-      {loading && (
-        <div className="loading">
-          <div className="spinner" />
-          <p>Sto decidendo per te...</p>
-        </div>
-      )}
+      {loading && <div className="loading"><div className="spinner" /><p>Sto decidendo per te...</p></div>}
 
       {result && result.error && (
-        <div className="result-card">
-          <h3>⚠️ Attenzione</h3>
-          <p>{result.error}</p>
-        </div>
+        <div className="result-card"><h3>⚠️ Attenzione</h3><p>{result.error}</p></div>
       )}
 
       {result && result.type === 'day' && result.plan && (
@@ -163,13 +141,6 @@ function App() {
       )}
     </div>
   );
-
-  function addToFridge(name) {
-    setFridgeInput(prev => {
-      if (!prev.trim()) return name;
-      return prev + ', ' + name;
-    });
-  }
 }
 
 function FoodCategory({ title, foods, onAdd }) {
@@ -178,9 +149,7 @@ function FoodCategory({ title, foods, onAdd }) {
       <div className="food-category-title">{title}</div>
       <div className="food-chips">
         {foods.map(f => (
-          <button key={f.name} className="food-chip" onClick={() => onAdd(f.name)}>
-            {f.name}
-          </button>
+          <button key={f.name} className="food-chip" onClick={() => onAdd(f.name)}>{f.name}</button>
         ))}
       </div>
     </div>
@@ -191,13 +160,7 @@ function MacroInput({ label, value, onChange }) {
   return (
     <div className="macro-input">
       <label>{label}</label>
-      <input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        onChange={e => onChange(Number(e.target.value) || 0)}
-        min="0"
-      />
+      <input type="number" inputMode="numeric" value={value} onChange={e => onChange(Number(e.target.value) || 0)} min="0" />
     </div>
   );
 }
@@ -220,22 +183,10 @@ function MealCard({ meal }) {
 function MacroSummary({ macros }) {
   return (
     <div className="macro-summary">
-      <div className="macro-pill kcal">
-        <div className="value">{macros.kcal}</div>
-        <div className="label">kcal</div>
-      </div>
-      <div className="macro-pill pro">
-        <div className="value">{macros.pro}g</div>
-        <div className="label">pro</div>
-      </div>
-      <div className="macro-pill carb">
-        <div className="value">{macros.carb}g</div>
-        <div className="label">carb</div>
-      </div>
-      <div className="macro-pill fat">
-        <div className="value">{macros.fat}g</div>
-        <div className="label">fat</div>
-      </div>
+      <div className="macro-pill kcal"><div className="value">{macros.kcal}</div><div className="label">kcal</div></div>
+      <div className="macro-pill pro"><div className="value">{macros.pro}g</div><div className="label">pro</div></div>
+      <div className="macro-pill carb"><div className="value">{macros.carb}g</div><div className="label">carb</div></div>
+      <div className="macro-pill fat"><div className="value">{macros.fat}g</div><div className="label">fat</div></div>
     </div>
   );
 }
@@ -246,27 +197,17 @@ function DayPlanResult({ plan, unrecognized }) {
       {unrecognized.length > 0 && (
         <div className="result-card" style={{ borderLeftColor: 'var(--warning)' }}>
           <h3>❓ Non riconosciuti</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {unrecognized.map(u => u.name).join(', ')}
-          </p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Questi alimenti non sono nel database. Usa "Mostra alimenti disponibili" per vedere cosa riconosco.
-          </p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
         </div>
       )}
-
-      {plan.meals.map((meal, i) => (
-        <MealCard key={i} meal={meal} />
-      ))}
-
+      {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} />)}
       <div className="remaining-banner">
         <h4>📊 Totale giornata</h4>
         <MacroSummary macros={plan.totalMacros} />
       </div>
-
       {(plan.remaining.kcal > 50 || plan.remaining.pro > 5) && (
         <div className="remaining-banner" style={{ marginTop: '8px', opacity: 0.8 }}>
-          <h4>Macro rimanenti (margine)</h4>
+          <h4>Macro rimanenti</h4>
           <MacroSummary macros={plan.remaining} />
         </div>
       )}
@@ -280,14 +221,10 @@ function SingleMealResult({ plan, unrecognized }) {
       {unrecognized.length > 0 && (
         <div className="result-card" style={{ borderLeftColor: 'var(--warning)' }}>
           <h3>❓ Non riconosciuti</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {unrecognized.map(u => u.name).join(', ')}
-          </p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{unrecognized.map(u => u.name).join(', ')}</p>
         </div>
       )}
-
       <MealCard meal={plan.meal} />
-
       <div className="remaining-banner">
         <h4>📊 Macro rimanenti dopo questo pasto</h4>
         <MacroSummary macros={plan.remaining} />
